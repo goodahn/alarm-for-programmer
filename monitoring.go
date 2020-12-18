@@ -1,11 +1,13 @@
 package alarm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +32,7 @@ type Process interface {
 type ProcessInfo struct {
 	uid    string
 	cmd    string
+	name   string
 	pid    int
 	status int
 }
@@ -63,7 +66,6 @@ func NewCommandMonitor(configPath string) (m Monitor) {
 		errMsg := fmt.Sprintf("error occured during parsing config file: %v", err)
 		panic(errMsg)
 	}
-	fmt.Println(config)
 
 	if _url, ok := config["slackWebHookURL"]; ok {
 		if url, ok := _url.(string); ok {
@@ -141,6 +143,19 @@ func (m *Monitor) CommandList() (cmdList []string) {
 func (m *Monitor) alarm() (err error) {
 	for _, pi := range m.processInfoMap {
 		if pi.status == Finished {
+			msg := fmt.Sprintf("%s (%d) is done!", pi.cmd, pi.pid)
+			log.Println(msg)
+			if len(m.webHookURL) > 0 {
+				data := map[string]string{
+					"text": msg,
+				}
+				rawData, _ := json.Marshal(data)
+				buff := bytes.NewBuffer(rawData)
+				_, err := http.Post(m.webHookURL, "application/json", buff)
+				if err != nil {
+					log.Printf("web hook request is failed: %v\n", err)
+				}
+			}
 			m.totalAlarmCount++
 		}
 	}
@@ -157,6 +172,8 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 	mutexForProcessStatusMap := &sync.Mutex{}
 	for uid, p := range m.processInfoMap {
 		processInfoMap[uid] = &ProcessInfo{
+			cmd:    p.cmd,
+			name:   p.name,
 			pid:    p.pid,
 			status: Unstarted,
 		}
@@ -176,7 +193,7 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 					updateProcessInfoMap(processInfoMap,
 						mutexForProcessStatusMap,
 						uid,
-						cmd,
+						pCmd,
 						pid,
 						Executing)
 					break
