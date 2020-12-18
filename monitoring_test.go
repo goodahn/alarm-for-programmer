@@ -2,6 +2,8 @@ package alarm_test
 
 import (
 	"os/exec"
+	"path"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -11,16 +13,17 @@ import (
 )
 
 func TestMonitoringCommand(t *testing.T) {
-	cmd := "test_monitoring_command"
+	_, currentFilePath, _, _ := runtime.Caller(0)
+	dirpath := path.Dir(currentFilePath)
 
 	commandNum := 10
-	m := alarm.NewCommandMonitor([]string{
-		cmd,
-	})
+	m := alarm.NewCommandMonitor(dirpath + "/" + "test_config.json")
 	m.SetMonitoringPeriod(100 * time.Millisecond)
 	m.Start()
 
 	time.Sleep(50 * time.Millisecond)
+
+	require.Equal(t, "test_monitoring_command", m.CommandList()[0])
 
 	wg := sync.WaitGroup{}
 	for i := 0; i < commandNum; i++ {
