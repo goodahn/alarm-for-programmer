@@ -2,7 +2,9 @@ package alarm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 	"sync"
@@ -35,6 +37,7 @@ type ProcessInfo struct {
 type Monitor struct {
 	totalAlarmCount          int
 	monitoringPeriod         time.Duration
+	webHookURL               string
 	cmdList                  []string
 	processInfoMap           map[string]*ProcessInfo
 	mutexForProcessStatusMap *sync.Mutex
@@ -42,13 +45,42 @@ type Monitor struct {
 	stop context.CancelFunc
 }
 
-func NewCommandMonitor(cmdList []string) (m Monitor) {
+func NewCommandMonitor(configPath string) (m Monitor) {
 	m = Monitor{
 		monitoringPeriod: time.Second,
 	}
 	m.processInfoMap = map[string]*ProcessInfo{}
 	m.mutexForProcessStatusMap = &sync.Mutex{}
-	m.setCommandList(cmdList)
+
+	data, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		errMsg := fmt.Sprintf("error occured during reading config file: %v", err)
+		panic(errMsg)
+	}
+	config := map[string]interface{}{}
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		errMsg := fmt.Sprintf("error occured during parsing config file: %v", err)
+		panic(errMsg)
+	}
+	fmt.Println(config)
+
+	if _url, ok := config["slackWebHookURL"]; ok {
+		if url, ok := _url.(string); ok {
+			m.setWebHookURL(url)
+		}
+	}
+	if rawCmdList, ok := config["commandList"]; ok {
+		if _cmdList, ok := rawCmdList.([]interface{}); ok {
+			cmdList := []string{}
+			for _, _cmd := range _cmdList {
+				if cmd, ok := _cmd.(string); ok {
+					cmdList = append(cmdList, cmd)
+				}
+			}
+			m.setCommandList(cmdList)
+		}
+	}
 	return m
 }
 
@@ -96,6 +128,14 @@ func (m *Monitor) SetMonitoringPeriod(period time.Duration) {
 
 func (m *Monitor) TotalAlarmCount() (alarmCount int) {
 	return m.totalAlarmCount
+}
+
+func (m *Monitor) WebHookURL() (url string) {
+	return m.webHookURL
+}
+
+func (m *Monitor) CommandList() (cmdList []string) {
+	return m.cmdList
 }
 
 func (m *Monitor) alarm() (err error) {
@@ -216,6 +256,10 @@ func checkExecutingOrNot(cmd string) (status int) {
 
 func (m *Monitor) setCommandList(cmdList []string) {
 	m.cmdList = cmdList
+}
+
+func (m *Monitor) setWebHookURL(url string) {
+	m.webHookURL = url
 }
 
 func makeUID(cmd string, pid int) (uid string) {
