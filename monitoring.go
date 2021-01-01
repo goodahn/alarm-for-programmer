@@ -1,13 +1,15 @@
 package alarm
 
 import (
+	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -27,14 +29,17 @@ const (
 type Process interface {
 	Cmd() string
 	Pid() int
+	Cwd() string
 }
 
 type ProcessInfo struct {
-	uid    string
-	cmd    string
-	name   string
-	pid    int
-	status int
+	uid     string
+	cmd     string
+	cwd     string
+	name    string
+	pid     int
+	status  int
+	succeed bool
 }
 
 type Monitor struct {
@@ -44,13 +49,13 @@ type Monitor struct {
 	cmdList                  []string
 	processInfoMap           map[string]*ProcessInfo
 	mutexForProcessStatusMap *sync.Mutex
-
-	stop context.CancelFunc
+	isStopped                bool
 }
 
 func NewCommandMonitor(configPath string) (m Monitor) {
 	m = Monitor{
 		monitoringPeriod: time.Second,
+		isStopped:        false,
 	}
 	m.processInfoMap = map[string]*ProcessInfo{}
 	m.mutexForProcessStatusMap = &sync.Mutex{}
@@ -87,21 +92,9 @@ func NewCommandMonitor(configPath string) (m Monitor) {
 }
 
 func (m *Monitor) Start() {
-	ctx, done := context.WithCancel(context.Background())
-	m.stop = done
-	isStopped := false
-
-	// go routine for getting stop call
-	go func() {
-		select {
-		case <-ctx.Done():
-			isStopped = true
-		}
-	}()
-
 	go func() {
 		for {
-			if isStopped {
+			if m.isStopped {
 				break
 			}
 
@@ -121,7 +114,7 @@ func (m *Monitor) Start() {
 }
 
 func (m *Monitor) Stop() {
-	m.stop()
+	m.isStopped = true
 }
 
 func (m *Monitor) SetMonitoringPeriod(period time.Duration) {
@@ -143,7 +136,21 @@ func (m *Monitor) CommandList() (cmdList []string) {
 func (m *Monitor) alarm() (err error) {
 	for _, pi := range m.processInfoMap {
 		if pi.status == Finished {
-			msg := fmt.Sprintf("%s (%d) is done!", pi.cmd, pi.pid)
+			var msg string
+			// add package name
+			if packageName := m.GetGoPackageName(pi.pid); packageName != "" {
+				msg = fmt.Sprintf("[%s] %s (%d) is", packageName, pi.cmd, pi.pid)
+			} else {
+				msg = fmt.Sprintf("%s (%d) is", pi.cmd, pi.pid)
+			}
+
+			// add succeed or failed
+			if pi.succeed {
+				msg = fmt.Sprintf("%s succeed!", msg)
+			} else {
+				msg = fmt.Sprintf("%s failed!", msg)
+			}
+
 			log.Println(msg)
 			if len(m.webHookURL) > 0 {
 				data := map[string]string{
@@ -175,6 +182,7 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 			cmd:    p.cmd,
 			name:   p.name,
 			pid:    p.pid,
+			cwd:    p.cwd,
 			status: Unstarted,
 		}
 	}
@@ -189,13 +197,16 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 			for _, cmd := range m.cmdList {
 				if strings.Contains(pCmd, cmd) {
 					pid := process.Pid()
+					cwd := process.Cwd()
 					uid := makeUID(cmd, pid)
 					updateProcessInfoMap(processInfoMap,
 						mutexForProcessStatusMap,
 						uid,
 						pCmd,
+						cwd,
 						pid,
-						Executing)
+						Executing,
+						false)
 					break
 				}
 			}
@@ -235,8 +246,11 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 						m.mutexForProcessStatusMap,
 						_p.uid,
 						_p.cmd,
+						_p.cwd,
 						_p.pid,
-						Executing)
+						Executing,
+						_p.succeed)
+					go m.WaitExitStatus(_p.pid)
 				}
 			}
 		}(_p, uid)
@@ -257,8 +271,10 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 						m.mutexForProcessStatusMap,
 						p.uid,
 						p.cmd,
+						p.cwd,
 						p.pid,
-						Finished)
+						Finished,
+						p.succeed)
 				}
 			}
 		}(_p, uid)
@@ -279,6 +295,81 @@ func (m *Monitor) setWebHookURL(url string) {
 	m.webHookURL = url
 }
 
+func (m *Monitor) GetPids(command string) (pids []int) {
+	m.mutexForProcessStatusMap.Lock()
+	defer m.mutexForProcessStatusMap.Unlock()
+
+	pids = []int{}
+
+	for _, pi := range m.processInfoMap {
+		if strings.Contains(pi.cmd, command) {
+			pids = append(pids, pi.pid)
+		}
+	}
+	return pids
+}
+
+func (m *Monitor) GetCwd(pid int) (cwd string) {
+	m.mutexForProcessStatusMap.Lock()
+	defer m.mutexForProcessStatusMap.Unlock()
+
+	for _, pi := range m.processInfoMap {
+		if pi.pid == pid {
+			cwd = pi.cwd
+			break
+		}
+	}
+
+	return cwd
+}
+
+func (m *Monitor) GetGoPackageName(pid int) (packageName string) {
+	cwd := m.GetCwd(pid)
+	files, err := ioutil.ReadDir(cwd)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, f := range files {
+		fo, err := os.Open(cwd + "/" + f.Name())
+		if err != nil {
+			continue
+		}
+
+		reader := bufio.NewReader(fo)
+		_line, _, err := reader.ReadLine()
+		line := string(_line)
+		if err == nil {
+			if strings.Contains(line, "package") &&
+				strings.Contains(line, "_test") {
+				packageName = strings.Split(line, " ")[1]
+				break
+			}
+		}
+		fo.Close()
+	}
+	return packageName
+}
+
+func (m *Monitor) WaitExitStatus(pid int) (succeed bool) {
+	c := exec.Command("wait", fmt.Sprint(pid))
+	err := c.Run()
+	m.mutexForProcessStatusMap.Lock()
+	defer m.mutexForProcessStatusMap.Unlock()
+	if _, ok := err.(*exec.ExitError); !ok {
+		fmt.Println(pid, "succeed!")
+		for _, pi := range m.processInfoMap {
+			if pi.pid == pid {
+				m.processInfoMap[pi.uid].succeed = true
+				break
+			}
+		}
+	} else {
+		fmt.Println(pid, "failed!")
+	}
+	return succeed
+}
+
 func makeUID(cmd string, pid int) (uid string) {
 	return fmt.Sprintf("%s||||%d", cmd, pid)
 }
@@ -292,14 +383,16 @@ func getProcessInfo(pim map[string]*ProcessInfo, mutex *sync.Mutex,
 }
 
 func updateProcessInfoMap(pim map[string]*ProcessInfo, mutex *sync.Mutex,
-	uid, cmd string, pid, status int) {
+	uid, cmd, cwd string, pid, status int, succeed bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	pim[uid] = &ProcessInfo{
-		uid:    uid,
-		cmd:    cmd,
-		pid:    pid,
-		status: status,
+		uid:     uid,
+		cmd:     cmd,
+		cwd:     cwd,
+		pid:     pid,
+		status:  status,
+		succeed: succeed,
 	}
 }
 

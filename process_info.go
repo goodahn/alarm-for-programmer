@@ -13,6 +13,7 @@ import (
 type UnixProcess struct {
 	cmd string
 	pid int
+	cwd string
 }
 
 func (up *UnixProcess) Cmd() (cmd string) {
@@ -21,6 +22,10 @@ func (up *UnixProcess) Cmd() (cmd string) {
 
 func (up *UnixProcess) Pid() (pid int) {
 	return up.pid
+}
+
+func (up *UnixProcess) Cwd() (cwd string) {
+	return up.cwd
 }
 
 func getProcessList() ([]Process, error) {
@@ -59,7 +64,19 @@ func getProcessList() ([]Process, error) {
 			}
 			cmd := strings.Join(strings.Split(string(bytes.TrimRight(data, string("\x00"))), string(byte(0))), " ")
 
-			p, err := newUnixProcess(cmd, int(pid))
+			data, err = ioutil.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
+			if err != nil {
+				continue
+			}
+			environ := strings.Split(string(data), string(byte(0)))
+			cwd := ""
+			for _, env := range environ {
+				if strings.Contains(env, "PWD") {
+					cwd = strings.Split(env, "=")[1]
+				}
+			}
+
+			p, err := newUnixProcess(cmd, int(pid), cwd)
 			if err != nil {
 				continue
 			}
@@ -71,10 +88,11 @@ func getProcessList() ([]Process, error) {
 	return results, nil
 }
 
-func newUnixProcess(cmd string, pid int) (newUnixProcess *UnixProcess, err error) {
+func newUnixProcess(cmd string, pid int, cwd string) (newUnixProcess *UnixProcess, err error) {
 	newUnixProcess = &UnixProcess{
 		cmd: cmd,
 		pid: pid,
+		cwd: cwd,
 	}
 	return newUnixProcess, nil
 }
