@@ -33,13 +33,12 @@ type Process interface {
 }
 
 type ProcessInfo struct {
-	uid     string
-	cmd     string
-	cwd     string
-	name    string
-	pid     int
-	status  int
-	succeed bool
+	uid    string
+	cmd    string
+	cwd    string
+	name   string
+	pid    int
+	status int
 }
 
 type Monitor struct {
@@ -139,16 +138,9 @@ func (m *Monitor) alarm() (err error) {
 			var msg string
 			// add package name
 			if packageName := m.GetGoPackageName(pi.pid); packageName != "" {
-				msg = fmt.Sprintf("[%s] %s (%d) is", packageName, pi.cmd, pi.pid)
+				msg = fmt.Sprintf("[%s] %s (%d) is done", packageName, pi.cmd, pi.pid)
 			} else {
-				msg = fmt.Sprintf("%s (%d) is", pi.cmd, pi.pid)
-			}
-
-			// add succeed or failed
-			if pi.succeed {
-				msg = fmt.Sprintf("%s succeed!", msg)
-			} else {
-				msg = fmt.Sprintf("%s failed!", msg)
+				msg = fmt.Sprintf("%s (%d) is done", pi.cmd, pi.pid)
 			}
 
 			log.Println(msg)
@@ -205,8 +197,7 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 						pCmd,
 						cwd,
 						pid,
-						Executing,
-						false)
+						Executing)
 					break
 				}
 			}
@@ -248,8 +239,7 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 						_p.cmd,
 						_p.cwd,
 						_p.pid,
-						Executing,
-						_p.succeed)
+						Executing)
 					go m.WaitExitStatus(_p.pid)
 				}
 			}
@@ -273,8 +263,7 @@ func (m *Monitor) updateProcessesStatus() (err error) {
 						p.cmd,
 						p.cwd,
 						p.pid,
-						Finished,
-						p.succeed)
+						Finished)
 				}
 			}
 		}(_p, uid)
@@ -351,23 +340,9 @@ func (m *Monitor) GetGoPackageName(pid int) (packageName string) {
 	return packageName
 }
 
-func (m *Monitor) WaitExitStatus(pid int) (succeed bool) {
+func (m *Monitor) WaitExitStatus(pid int) {
 	c := exec.Command("wait", fmt.Sprint(pid))
-	err := c.Run()
-	m.mutexForProcessStatusMap.Lock()
-	defer m.mutexForProcessStatusMap.Unlock()
-	if _, ok := err.(*exec.ExitError); !ok {
-		fmt.Println(pid, "succeed!")
-		for _, pi := range m.processInfoMap {
-			if pi.pid == pid {
-				m.processInfoMap[pi.uid].succeed = true
-				break
-			}
-		}
-	} else {
-		fmt.Println(pid, "failed!")
-	}
-	return succeed
+	c.Run()
 }
 
 func makeUID(cmd string, pid int) (uid string) {
@@ -383,16 +358,15 @@ func getProcessInfo(pim map[string]*ProcessInfo, mutex *sync.Mutex,
 }
 
 func updateProcessInfoMap(pim map[string]*ProcessInfo, mutex *sync.Mutex,
-	uid, cmd, cwd string, pid, status int, succeed bool) {
+	uid, cmd, cwd string, pid, status int) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	pim[uid] = &ProcessInfo{
-		uid:     uid,
-		cmd:     cmd,
-		cwd:     cwd,
-		pid:     pid,
-		status:  status,
-		succeed: succeed,
+		uid:    uid,
+		cmd:    cmd,
+		cwd:    cwd,
+		pid:    pid,
+		status: status,
 	}
 }
 
