@@ -16,12 +16,14 @@ func CheckTargetProcessList() func(*testing.T) {
 			[]string{"go test"},
 		)
 
+		ps := pim.GetCurrentProcessStatus("go test")
 		require.Equal(t,
 			ProcessStarted,
-			pim.GetCurrentProcessStatus("go test"))
+			ps.Status())
 
+		ps = pim.GetCurrentProcessStatus("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
 		require.Equal(t,
 			NotFoundInTargetProcessList,
-			pim.GetCurrentProcessStatus("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS"))
+			ps.Status())
 	}
 }
