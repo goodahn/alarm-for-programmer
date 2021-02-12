@@ -15,6 +15,7 @@ func CheckTargetProcessList() func(*testing.T) {
 		pim := NewProcessInfoMonitor(
 			[]string{"go test"},
 		)
+		defer pim.Stop()
 
 		ps := pim.GetCurrentProcessStatus("go test")
 		require.Equal(t,

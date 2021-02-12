@@ -26,6 +26,7 @@ func CheckExecutingStatus() func(*testing.T) {
 func CheckExecuting() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
+		defer pir.Stop()
 		require.True(t, pir.IsExecuting("go test"))
 	}
 }
@@ -33,6 +34,7 @@ func CheckExecuting() func(*testing.T) {
 func CheckNotExecuting() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
+		defer pir.Stop()
 		require.False(t, pir.IsExecuting("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS"))
 	}
 }
@@ -40,6 +42,7 @@ func CheckNotExecuting() func(*testing.T) {
 func CheckDirectoryOfExecutingBinary() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
+		defer pir.Stop()
 		require.Equal(t,
 			getCurrentFileLocation(),
 			pir.GetLocationOfExecutedBinary("go test"),
@@ -60,6 +63,7 @@ func getCurrentFileLocation() (fileLocation string) {
 func CheckPackageNameOfGoLangProcess() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
+		defer pir.Stop()
 		require.Equal(t,
 			"alarm",
 			pir.GetPackageNameOfGolangProcess("go test"),

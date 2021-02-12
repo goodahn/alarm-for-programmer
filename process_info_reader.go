@@ -17,8 +17,8 @@ type ProcessInfoReader struct {
 	mutexForStart   sync.Mutex
 }
 
-func NewProcessInfoReader() ProcessInfoReader {
-	pir := ProcessInfoReader{}
+func NewProcessInfoReader() *ProcessInfoReader {
+	pir := &ProcessInfoReader{}
 	pir.SetPeriod(500 * time.Millisecond)
 	pir.Start()
 	time.Sleep(500 * time.Millisecond)

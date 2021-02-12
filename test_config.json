@@ -1,6 +1,0 @@
-{
-    "commandList" : [
-        "test_monitoring_command",
-        "go test -run"
-    ]
-}

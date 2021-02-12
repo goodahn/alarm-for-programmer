@@ -17,8 +17,8 @@ type ProcessInfoMonitor struct {
 	processInfoReader ProcessInfoReader
 }
 
-func NewProcessInfoMonitor(targetProcessList []string) ProcessInfoMonitor {
-	pim := ProcessInfoMonitor{}
+func NewProcessInfoMonitor(targetProcessList []string) *ProcessInfoMonitor {
+	pim := &ProcessInfoMonitor{}
 	pim.Init()
 	pim.SetTargetProcessList(targetProcessList)
 	pim.SetPeriod(500 * time.Millisecond)
