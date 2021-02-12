@@ -26,3 +26,5 @@ go.sum
 *.swp
 *.swo
 # End of https://www.toptal.com/developers/gitignore/api/go
+
+test_config.json
