@@ -6,13 +6,15 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 type ProcessInfoReader struct {
 	processInfoList []ProcessInfo
 	period          time.Duration
-	stop            bool
+	start           bool
+	mutexForStart   sync.Mutex
 }
 
 func NewProcessInfoReader() ProcessInfoReader {
@@ -24,9 +26,17 @@ func NewProcessInfoReader() ProcessInfoReader {
 }
 
 func (pir *ProcessInfoReader) Start() {
+	pir.mutexForStart.Lock()
+	defer pir.mutexForStart.Unlock()
+
+	if pir.start == true {
+		return
+	}
+	pir.start = true
+
 	go func() {
 		for {
-			if pir.stop == true {
+			if pir.start == false {
 				break
 			}
 
@@ -41,7 +51,7 @@ func (pir *ProcessInfoReader) Start() {
 }
 
 func (pir *ProcessInfoReader) Stop() {
-	pir.stop = true
+	pir.start = false
 }
 
 func (pir *ProcessInfoReader) SetPeriod(period time.Duration) {
