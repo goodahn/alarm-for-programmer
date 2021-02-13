@@ -72,6 +72,7 @@ func (a *Alarmer) findNewlyFinishedProcess(processName string) map[int]ProcessSt
 	for pid, processStatus := range processStatusHistory {
 		if findPidInPidList(pid, finishedPidList) == false {
 			finishedProcessStatusHistory[pid] = processStatus
+			a.finishedProcessNamePidListMap[processName] = append(a.finishedProcessNamePidListMap[processName], pid)
 		}
 	}
 	return finishedProcessStatusHistory
