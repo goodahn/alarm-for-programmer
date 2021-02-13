@@ -17,14 +17,14 @@ func CheckTargetProcessList() func(*testing.T) {
 		)
 		defer pim.Stop()
 
-		ps := pim.GetCurrentProcessStatus("go test")
-		require.Equal(t,
-			ProcessStarted,
-			ps.Status())
+		processStatusHistory := pim.GetCurrentProcessStatusHistoryByName("go test")
+		for _, processStatus := range processStatusHistory {
+			require.Equal(t,
+				ProcessStarted,
+				processStatus.Status())
+		}
 
-		ps = pim.GetCurrentProcessStatus("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
-		require.Equal(t,
-			NotFoundInTargetProcessList,
-			ps.Status())
+		processStatusHistory = pim.GetCurrentProcessStatusHistoryByName("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
+		require.Zero(t, len(processStatusHistory))
 	}
 }

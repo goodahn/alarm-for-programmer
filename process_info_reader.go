@@ -19,9 +19,9 @@ type ProcessInfoReader struct {
 
 func NewProcessInfoReader() *ProcessInfoReader {
 	pir := &ProcessInfoReader{}
-	pir.SetPeriod(500 * time.Millisecond)
+	pir.SetPeriod(defaultPeriod)
 	pir.Start()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(defaultPeriod)
 	return pir
 }
 
@@ -58,27 +58,37 @@ func (pir *ProcessInfoReader) SetPeriod(period time.Duration) {
 	pir.period = period
 }
 
-func (pir *ProcessInfoReader) IsExecuting(processName string) bool {
-	return pir.findProcessInfoByName(processName) != ProcessInfo{}
+func (pir *ProcessInfoReader) GetPidListByName(processName string) []int {
+	pidList := []int{}
+	for _, processInfo := range pir.processInfoList {
+		if strings.Contains(processInfo.Cmd(), processName) {
+			pidList = append(pidList, processInfo.Pid())
+		}
+	}
+	return pidList
+}
+
+func (pir *ProcessInfoReader) IsExecuting(pid int) bool {
+	return pir.findProcessInfoByPid(pid) != ProcessInfo{}
 }
 
 // there is no "/" at the last of file location
-func (pir *ProcessInfoReader) GetLocationOfExecutedBinary(processName string) string {
-	processInfo := pir.findProcessInfoByName(processName)
+func (pir *ProcessInfoReader) GetLocationOfExecutedBinary(pid int) string {
+	processInfo := pir.findProcessInfoByPid(pid)
 	return processInfo.BinaryLocation()
 }
 
-func (pir *ProcessInfoReader) findProcessInfoByName(processName string) ProcessInfo {
+func (pir *ProcessInfoReader) findProcessInfoByPid(pid int) ProcessInfo {
 	for _, processInfo := range pir.processInfoList {
-		if strings.Contains(processInfo.Cmd(), processName) {
+		if processInfo.Pid() == pid {
 			return processInfo
 		}
 	}
 	return ProcessInfo{}
 }
 
-func (pir *ProcessInfoReader) GetPackageNameOfGolangProcess(processName string) string {
-	binaryLocation := pir.GetLocationOfExecutedBinary(processName)
+func (pir *ProcessInfoReader) GetPackageNameOfGolangProcess(pid int) string {
+	binaryLocation := pir.GetLocationOfExecutedBinary(pid)
 	packageName := getPackageNameOfGolangProcessFromDirectory(binaryLocation)
 	return packageName
 }

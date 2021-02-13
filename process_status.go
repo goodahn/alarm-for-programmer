@@ -19,23 +19,29 @@ var (
 )
 
 type ProcessStatus struct {
+	pid       int
 	status    string
 	timestamp time.Time
 }
 
-func NewProcessStatus(status string) ProcessStatus {
+func NewProcessStatus(pid int, status string) ProcessStatus {
 	ps := ProcessStatus{}
-	ps.Init(status)
+	ps.Init(pid, status)
 	return ps
 }
 
-func (ps *ProcessStatus) Init(status string) {
+func (ps *ProcessStatus) Init(pid int, status string) {
 	_, ok := CheckProcessStatus[status]
 	if ok == false {
 		return
 	}
+	ps.pid = pid
 	ps.status = status
 	ps.timestamp = time.Now()
+}
+
+func (ps *ProcessStatus) Pid() int {
+	return ps.pid
 }
 
 func (ps *ProcessStatus) Status() string {

@@ -7,7 +7,7 @@ import (
 
 type ProcessInfoMonitor struct {
 	targetProcessList       []string
-	processStatusHistoryMap map[string][]ProcessStatus
+	processStatusHistoryMap map[string](map[int]ProcessStatus)
 	period                  time.Duration
 	start                   bool
 	mutexForStart           sync.Mutex
@@ -21,14 +21,14 @@ func NewProcessInfoMonitor(targetProcessList []string) *ProcessInfoMonitor {
 	pim := &ProcessInfoMonitor{}
 	pim.Init()
 	pim.SetTargetProcessList(targetProcessList)
-	pim.SetPeriod(500 * time.Millisecond)
+	pim.SetPeriod(defaultPeriod)
 	pim.Start()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(defaultPeriod)
 	return pim
 }
 
 func (pim *ProcessInfoMonitor) Init() {
-	pim.processStatusHistoryMap = map[string][]ProcessStatus{}
+	pim.processStatusHistoryMap = map[string](map[int]ProcessStatus){}
 	pim.processInfoReader = NewProcessInfoReader()
 }
 
@@ -63,36 +63,53 @@ func (pim *ProcessInfoMonitor) updateTargetProcessStatusHistory() {
 }
 
 func (pim *ProcessInfoMonitor) updateProcessStatusHistory(processName string) {
-	changedProcessStatus := pim.checkProcessStatusChanged(processName)
-	if (changedProcessStatus == ProcessStatus{}) {
+	changedProcessStatusHistory := pim.checkProcessStatusChanged(processName)
+	if len(changedProcessStatusHistory) == 0 {
 		return
 	}
-	pim.appendProcessStatusHistory(processName, changedProcessStatus)
+	pim.appendProcessStatusHistory(processName, changedProcessStatusHistory)
 }
 
-func (pim *ProcessInfoMonitor) checkProcessStatusChanged(processName string) ProcessStatus {
+func (pim *ProcessInfoMonitor) checkProcessStatusChanged(processName string) map[int]ProcessStatus {
+	changedProcessStatusHistory := map[int]ProcessStatus{}
+
+	pim.mutexForStart.Lock()
+	defer pim.mutexForStart.Unlock()
 	processStatusHistory := pim.processStatusHistoryMap[processName]
-	isExecuting := pim.processInfoReader.IsExecuting(processName)
+
+	pidList := pim.processInfoReader.GetPidListByName(processName)
+	for _, pid := range pidList {
+		processStatus := pim.getUpdatedProcessStatusInHistoryWithTimestamp(processStatusHistory, pid)
+		if (processStatus == ProcessStatus{}) {
+			continue
+		}
+		changedProcessStatusHistory[pid] = processStatus
+	}
+	return changedProcessStatusHistory
+}
+
+func (pim *ProcessInfoMonitor) getUpdatedProcessStatusInHistoryWithTimestamp(processStatusHistory map[int]ProcessStatus, pid int) ProcessStatus {
+	isExecuting := pim.processInfoReader.IsExecuting(pid)
 	if isExecuting {
 		// process is started after its previous execution
-		mostRecentProcessStatus := findProcessStatusInHistoryWithTimestamp(processStatusHistory, pim.now)
+		mostRecentProcessStatus := findProcessStatusInHistory(processStatusHistory, pid)
 		if mostRecentProcessStatus.Status() == ProcessFinished ||
 			mostRecentProcessStatus.Status() == ProcessNeverStarted {
-			return NewProcessStatus(ProcessStarted)
+			return NewProcessStatus(pid, ProcessStarted)
 		}
 	} else {
 		// process is finshed after start
-		mostRecentProcessStatus := findProcessStatusInHistoryWithTimestamp(processStatusHistory, pim.now)
-		if mostRecentProcessStatus.Status() == ProcessFinished {
-			return NewProcessStatus(ProcessFinished)
+		mostRecentProcessStatus := findProcessStatusInHistory(processStatusHistory, pid)
+		if mostRecentProcessStatus.Status() == ProcessStarted {
+			return NewProcessStatus(pid, ProcessFinished)
 		}
 	}
 	return ProcessStatus{}
 }
 
-func (pim *ProcessInfoMonitor) appendProcessStatusHistory(processName string, processStatus ProcessStatus) {
-	processStatusHistory := pim.processStatusHistoryMap[processName]
-	processStatusHistory = append(processStatusHistory, processStatus)
+func (pim *ProcessInfoMonitor) appendProcessStatusHistory(processName string, processStatusHistory map[int]ProcessStatus) {
+	pim.mutexForStart.Lock()
+	defer pim.mutexForStart.Unlock()
 	pim.processStatusHistoryMap[processName] = processStatusHistory
 }
 
@@ -103,42 +120,41 @@ func (pim *ProcessInfoMonitor) Stop() {
 
 func (pim *ProcessInfoMonitor) SetPeriod(period time.Duration) {
 	pim.period = period
+	pim.processInfoReader.SetPeriod(period)
 }
 
 func (pim *ProcessInfoMonitor) SetTargetProcessList(targetProcessList []string) {
 	pim.targetProcessList = targetProcessList
 	for _, processName := range targetProcessList {
-		pim.processStatusHistoryMap[processName] = []ProcessStatus{}
+		pim.processStatusHistoryMap[processName] = map[int]ProcessStatus{}
 	}
 }
 
-func (pim *ProcessInfoMonitor) GetCurrentProcessStatus(processName string) ProcessStatus {
-	now := time.Now()
-	return pim.getProcessStatusWithTimestamp(processName, now)
+func (pim *ProcessInfoMonitor) GetCurrentProcessStatusHistoryByName(processName string) map[int]ProcessStatus {
+	pim.mutexForStart.Lock()
+	defer pim.mutexForStart.Unlock()
+	return pim.getProcessStatusHistory(processName)
 }
 
-func (pim *ProcessInfoMonitor) getProcessStatusWithTimestamp(processName string, timestamp time.Time) ProcessStatus {
+func (pim *ProcessInfoMonitor) getProcessStatusHistory(processName string) map[int]ProcessStatus {
 	processStatusHistory, ok := pim.processStatusHistoryMap[processName]
 	if ok == false {
-		return NewProcessStatus(NotFoundInTargetProcessList)
+		return map[int]ProcessStatus{}
 	}
-
-	processStatus := findProcessStatusInHistoryWithTimestamp(processStatusHistory, timestamp)
-	return processStatus
+	return processStatusHistory
 }
 
 // findProcessStatusInHistory finds the ProcessStatus
 // whose timestamp is the biggest while its timestamp is smaller than given timestamp
-func findProcessStatusInHistoryWithTimestamp(processStatusHistory []ProcessStatus, timestamp time.Time) ProcessStatus {
+func findProcessStatusInHistory(processStatusHistory map[int]ProcessStatus, pid int) ProcessStatus {
 	if len(processStatusHistory) == 0 {
-		return NewProcessStatus(ProcessNeverStarted)
+		return NewProcessStatus(pid, ProcessNeverStarted)
 	}
-	mostRecentProcessStatus := NewProcessStatus(ProcessNeverStarted)
+	mostRecentProcessStatus := NewProcessStatus(pid, ProcessNeverStarted)
 	mostRecentProcessStatus.SetTimestamp(time.Time{})
 
 	for _, processStatus := range processStatusHistory {
-		if timestamp.After(processStatus.TimeStamp()) &&
-			mostRecentProcessStatus.TimeStamp().Before(processStatus.TimeStamp()) {
+		if processStatus.Pid() == pid {
 			mostRecentProcessStatus = processStatus
 		}
 	}

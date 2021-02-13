@@ -27,7 +27,10 @@ func CheckExecuting() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
 		defer pir.Stop()
-		require.True(t, pir.IsExecuting("go test"))
+
+		pidList := pir.GetPidListByName("go test")
+		require.Equal(t, 1, len(pidList))
+		require.True(t, pir.IsExecuting(pidList[0]))
 	}
 }
 
@@ -35,7 +38,9 @@ func CheckNotExecuting() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
 		defer pir.Stop()
-		require.False(t, pir.IsExecuting("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS"))
+
+		pidList := pir.GetPidListByName("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
+		require.Equal(t, 0, len(pidList))
 	}
 }
 
@@ -43,9 +48,12 @@ func CheckDirectoryOfExecutingBinary() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
 		defer pir.Stop()
+
+		pidList := pir.GetPidListByName("go test")
+		require.Equal(t, 1, len(pidList))
 		require.Equal(t,
 			getCurrentFileLocation(),
-			pir.GetLocationOfExecutedBinary("go test"),
+			pir.GetLocationOfExecutedBinary(pidList[0]),
 		)
 	}
 }
@@ -64,13 +72,15 @@ func CheckPackageNameOfGoLangProcess() func(*testing.T) {
 	return func(t *testing.T) {
 		pir := NewProcessInfoReader()
 		defer pir.Stop()
+
+		pidList := pir.GetPidListByName("go test")
+		require.Equal(t, 1, len(pidList))
 		require.Equal(t,
 			"alarm",
-			pir.GetPackageNameOfGolangProcess("go test"),
+			pir.GetPackageNameOfGolangProcess(pidList[0]),
 		)
-		require.Equal(t,
-			"",
-			pir.GetPackageNameOfGolangProcess("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS"),
-		)
+
+		pidList = pir.GetPidListByName("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
+		require.Equal(t, 0, len(pidList))
 	}
 }
