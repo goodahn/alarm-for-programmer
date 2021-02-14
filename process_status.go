@@ -3,18 +3,18 @@ package alarm
 import "time"
 
 const (
-	NotFoundInTargetProcessList = "NOT_FOUND_IN_TARGET_PROCESS_LIST"
-	ProcessNeverStarted         = "PROCESS_NEVER_STARTED"
-	ProcessStarted              = "PROCESS_STARTED"
-	ProcessFinished             = "PROCESS_FINISHED"
+	NotFoundInNamePatternList = "NOT_FOUND_IN_TARGET_PROCESS_LIST"
+	ProcessNeverStarted       = "PROCESS_NEVER_STARTED"
+	ProcessStarted            = "PROCESS_STARTED"
+	ProcessFinished           = "PROCESS_FINISHED"
 )
 
 var (
 	CheckProcessStatus = map[string]bool{
-		NotFoundInTargetProcessList: true,
-		ProcessNeverStarted:         true,
-		ProcessStarted:              true,
-		ProcessFinished:             true,
+		NotFoundInNamePatternList: true,
+		ProcessNeverStarted:       true,
+		ProcessStarted:            true,
+		ProcessFinished:           true,
 	}
 )
 

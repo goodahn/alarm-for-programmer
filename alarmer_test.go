@@ -1,7 +1,9 @@
 package alarm
 
 import (
+	"io/ioutil"
 	"os/exec"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -15,19 +17,29 @@ func TestAlarmer(t *testing.T) {
 
 func CheckAlarmCount() func(*testing.T) {
 	return func(t *testing.T) {
-		alarmer := NewAlarmer([]string{
-			"bash test",
-			"THERE WILL BE NO PROCESS LIKE THIS",
-		})
+		prepareConfigJson()
+		alarmer := NewAlarmer("test_config.json")
 		defer alarmer.Stop()
 
 		count := 5
 		executeBashScriptManyTime(count)
 		time.Sleep(2 * defaultPeriod)
 
-		require.Equal(t, 0, alarmer.GetAlarmCount("THERE WILL BE NO PROCESS LIKE THIS"))
-		require.Equal(t, count, alarmer.GetAlarmCount("bash test"))
+		require.Equal(t, count, alarmer.GetTotalAlarmCountOfNamePattern("bash test"))
+		require.Equal(t, 0, alarmer.GetTotalAlarmCountOfNamePattern("THERE WILL BE NO PROCESS LIKE THIS"))
 	}
+}
+
+func prepareConfigJson() {
+	configContent := strings.TrimSpace(`
+	{
+		"namePatternList" : [
+			"bash test",
+			"THERE WILL BE NO PROCESS LIKE THIS"
+		]
+	}
+	`)
+	_ = ioutil.WriteFile(TestConfigPath, []byte(configContent), 0644)
 }
 
 func executeBashScriptManyTime(count int) {

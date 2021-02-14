@@ -7,10 +7,10 @@ import (
 )
 
 func TestProcessInfoMonitor(t *testing.T) {
-	t.Run("TargetProcessList", CheckTargetProcessList())
+	t.Run("NamePatternList", CheckNamePatternList())
 }
 
-func CheckTargetProcessList() func(*testing.T) {
+func CheckNamePatternList() func(*testing.T) {
 	return func(t *testing.T) {
 		pim := NewProcessInfoMonitor(
 			[]string{"go test"},

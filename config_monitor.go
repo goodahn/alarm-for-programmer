@@ -13,11 +13,11 @@ const (
 )
 
 type ConfigMonitor struct {
-	configPath    string
-	config        map[string]interface{}
-	period        time.Duration
-	start         bool
-	mutexForStart sync.Mutex
+	configPath string
+	config     map[string]interface{}
+	period     time.Duration
+	start      bool
+	mutex      sync.Mutex
 }
 
 func NewConfigMonitor(configPath string) *ConfigMonitor {
@@ -36,8 +36,8 @@ func (cm *ConfigMonitor) Init(configPath string) {
 }
 
 func (cm *ConfigMonitor) Start() {
-	cm.mutexForStart.Lock()
-	defer cm.mutexForStart.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 
 	if cm.start == true {
 		return
@@ -63,8 +63,8 @@ func (cm *ConfigMonitor) UpdateConfig() {
 		fmt.Println(errMsg)
 		return
 	}
-	cm.mutexForStart.Lock()
-	defer cm.mutexForStart.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 	cm.config = map[string]interface{}{}
 	for key, val := range config {
 		cm.config[key] = val
@@ -96,7 +96,27 @@ func (cm *ConfigMonitor) SetPeriod(period time.Duration) {
 }
 
 func (cm *ConfigMonitor) GetConfig() map[string]interface{} {
-	cm.mutexForStart.Lock()
-	defer cm.mutexForStart.Unlock()
-	return cm.config
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	config := map[string]interface{}{}
+	for key, val := range cm.config {
+		config[key] = val
+	}
+	return config
+}
+
+func (cm *ConfigMonitor) GetNamePatternList() []string {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	namePatternList := []string{}
+
+	rawNamePatternList := cm.config["namePatternList"].([]interface{})
+	for _, rawNamePattern := range rawNamePatternList {
+		namePattern, ok := rawNamePattern.(string)
+		if !ok {
+			continue
+		}
+		namePatternList = append(namePatternList, namePattern)
+	}
+	return namePatternList
 }

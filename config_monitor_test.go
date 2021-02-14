@@ -14,7 +14,7 @@ const (
 )
 
 func TestConfigMonitor(t *testing.T) {
-	//t.Run("EmptyConfig", CheckEmptyConfig())
+	t.Run("EmptyConfig", CheckEmptyConfig())
 	t.Run("ChangeConfig", CheckChangeConfig())
 }
 
@@ -42,7 +42,7 @@ func CheckChangeConfig() func(*testing.T) {
 			0,
 			len(cm.GetConfig()))
 
-		addTargetProcessList()
+		addNamePatternList()
 		time.Sleep(500 * time.Millisecond)
 
 		config := cm.GetConfig()
@@ -58,10 +58,10 @@ func prepareEmptyConfig() {
 	_ = ioutil.WriteFile(TestConfigPath, []byte(configContent), 0644)
 }
 
-func addTargetProcessList() {
+func addNamePatternList() {
 	configContent := strings.TrimSpace(`
 	{
-		"targetProcessList" : [
+		"namePatternList" : [
 			"go test"
 		]
 	}

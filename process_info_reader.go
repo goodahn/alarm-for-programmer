@@ -14,7 +14,7 @@ type ProcessInfoReader struct {
 	processInfoList []ProcessInfo
 	period          time.Duration
 	start           bool
-	mutexForStart   sync.Mutex
+	mutex           sync.Mutex
 }
 
 func NewProcessInfoReader() *ProcessInfoReader {
@@ -26,8 +26,8 @@ func NewProcessInfoReader() *ProcessInfoReader {
 }
 
 func (pir *ProcessInfoReader) Start() {
-	pir.mutexForStart.Lock()
-	defer pir.mutexForStart.Unlock()
+	pir.mutex.Lock()
+	defer pir.mutex.Unlock()
 
 	if pir.start == true {
 		return
