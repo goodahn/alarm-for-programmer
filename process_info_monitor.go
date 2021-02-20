@@ -130,7 +130,7 @@ func (pim *ProcessInfoMonitor) SetNamePatternList(namePatternList []string) {
 	}
 }
 
-func (pim *ProcessInfoMonitor) GetCurrentProcessStatusLogByNamePattern(namePattern string) map[int]ProcessStatus {
+func (pim *ProcessInfoMonitor) GetProcessStatusLogByNamePattern(namePattern string) map[int]ProcessStatus {
 	pim.mutex.Lock()
 	defer pim.mutex.Unlock()
 	return pim.getProcessStatusLog(namePattern)
