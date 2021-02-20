@@ -23,7 +23,6 @@ type ConfigMonitor struct {
 func NewConfigMonitor(configPath string) *ConfigMonitor {
 	cm := &ConfigMonitor{}
 	cm.Init(configPath)
-	cm.SetPeriod(defaultPeriod)
 	cm.Start()
 	time.Sleep(defaultPeriod)
 	return cm
@@ -33,6 +32,7 @@ func (cm *ConfigMonitor) Init(configPath string) {
 	cm.configPath = configPath
 	cm.config = map[string]interface{}{}
 	cm.UpdateConfig()
+	cm.SetPeriod(defaultPeriod)
 }
 
 func (cm *ConfigMonitor) Start() {

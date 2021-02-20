@@ -21,7 +21,6 @@ func NewProcessInfoMonitor(namePatternList []string) *ProcessInfoMonitor {
 	pim := &ProcessInfoMonitor{}
 	pim.Init()
 	pim.SetNamePatternList(namePatternList)
-	pim.SetPeriod(defaultPeriod)
 	pim.Start()
 	time.Sleep(defaultPeriod)
 	return pim
@@ -30,6 +29,7 @@ func NewProcessInfoMonitor(namePatternList []string) *ProcessInfoMonitor {
 func (pim *ProcessInfoMonitor) Init() {
 	pim.processStatusLogByNamePattern = map[string](map[int]ProcessStatus){}
 	pim.processInfoReader = NewProcessInfoReader()
+	pim.SetPeriod(defaultPeriod)
 }
 
 // there will be only one go routine for monitoring ProcessInfo

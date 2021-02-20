@@ -19,10 +19,14 @@ type ProcessInfoReader struct {
 
 func NewProcessInfoReader() *ProcessInfoReader {
 	pir := &ProcessInfoReader{}
-	pir.SetPeriod(defaultPeriod)
+	pir.Init()
 	pir.Start()
 	time.Sleep(defaultPeriod)
 	return pir
+}
+
+func (pir *ProcessInfoReader) Init() {
+	pir.SetPeriod(defaultPeriod)
 }
 
 func (pir *ProcessInfoReader) Start() {

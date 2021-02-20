@@ -20,7 +20,6 @@ type Alarmer struct {
 func NewAlarmer(configPath string) *Alarmer {
 	alarmer := &Alarmer{}
 	alarmer.Init(configPath)
-	alarmer.SetPeriod(defaultPeriod)
 	alarmer.Start()
 	time.Sleep(defaultPeriod)
 	return alarmer
@@ -35,6 +34,7 @@ func (a *Alarmer) Init(configPath string) {
 	a.alarmCountMap = map[string]int{}
 
 	a.processInfoMonitor = NewProcessInfoMonitor(namePatternList)
+	a.SetPeriod(defaultPeriod)
 }
 
 // there will be only one go routine for monitoring ProcessInfo
@@ -72,7 +72,7 @@ func (a *Alarmer) alarmIfProcessFinished() {
 func (a *Alarmer) findNewlyFinishedProcessesWithNamePattern(namePattern string) map[int]ProcessStatus {
 	newlyFinishedProcessStatusMap := map[int]ProcessStatus{}
 
-	finishedProcessStatusMap := a.processInfoMonitor.GetCurrentProcessStatusHistoryByName(namePattern)
+	finishedProcessStatusMap := a.processInfoMonitor.GetProcessStatusLogByNamePattern(namePattern)
 	alreadyFinishedPidList := a.alreadyFinishedNamePatternPidListMap[namePattern]
 	for pid, processStatus := range finishedProcessStatusMap {
 		if findPidInPidList(pid, alreadyFinishedPidList) == false {
@@ -92,10 +92,10 @@ func findPidInPidList(pid int, pidList []int) bool {
 	return false
 }
 
-func (a *Alarmer) alarm(processName string, processStatusHistory map[int]ProcessStatus) {
+func (a *Alarmer) alarm(namePattern string, processStatusHistory map[int]ProcessStatus) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	a.alarmCountMap[processName] += len(processStatusHistory)
+	a.alarmCountMap[namePattern] += len(processStatusHistory)
 }
 
 func (a *Alarmer) Stop() {
@@ -107,10 +107,10 @@ func (a *Alarmer) SetPeriod(period time.Duration) {
 	a.processInfoMonitor.SetPeriod(period)
 }
 
-func (a *Alarmer) GetTotalAlarmCountOfNamePattern(processName string) int {
+func (a *Alarmer) GetTotalAlarmCountOfNamePattern(namePattern string) int {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	count, ok := a.alarmCountMap[processName]
+	count, ok := a.alarmCountMap[namePattern]
 	if ok == false {
 		return 0
 	}
