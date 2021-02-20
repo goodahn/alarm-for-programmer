@@ -130,13 +130,13 @@ func (pim *ProcessInfoMonitor) SetNamePatternList(namePatternList []string) {
 	}
 }
 
-func (pim *ProcessInfoMonitor) GetCurrentProcessStatusHistoryByName(processName string) map[int]ProcessStatus {
+func (pim *ProcessInfoMonitor) GetCurrentProcessStatusLogByNamePattern(namePattern string) map[int]ProcessStatus {
 	pim.mutex.Lock()
 	defer pim.mutex.Unlock()
-	return pim.getProcessStatusHistory(processName)
+	return pim.getProcessStatusLog(namePattern)
 }
 
-func (pim *ProcessInfoMonitor) getProcessStatusHistory(processName string) map[int]ProcessStatus {
+func (pim *ProcessInfoMonitor) getProcessStatusLog(processName string) map[int]ProcessStatus {
 	processStatusHistory, ok := pim.processStatusLogByNamePattern[processName]
 	if ok == false {
 		return map[int]ProcessStatus{}
