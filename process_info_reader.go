@@ -58,10 +58,10 @@ func (pir *ProcessInfoReader) SetPeriod(period time.Duration) {
 	pir.period = period
 }
 
-func (pir *ProcessInfoReader) GetPidListByName(processName string) []int {
+func (pir *ProcessInfoReader) GetPidListByName(namePattern string) []int {
 	pidList := []int{}
 	for _, processInfo := range pir.processInfoList {
-		if strings.Contains(processInfo.Cmd(), processName) {
+		if strings.Contains(processInfo.Cmd(), namePattern) {
 			pidList = append(pidList, processInfo.Pid())
 		}
 	}
