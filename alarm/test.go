@@ -62,7 +62,7 @@ func CheckGetAlarmConfig(configPath string) func(*testing.T) {
 			map[string]string{
 				"type": "slack-webhook",
 				"webHookUrl":"localhost",
-				"requestTimeout": "10"
+				"requestTimeout": "10",
 			},
 			alarmer.GetAlarmConfig(),
 		)
