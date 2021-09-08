@@ -11,10 +11,10 @@ import (
 )
 
 type ProcessInfoReader struct {
-	processInfoList []ProcessInfo
-	period          time.Duration
-	start           bool
-	mutex           sync.Mutex
+	processInfoList               []ProcessInfo
+	monitoringPeriod              time.Duration
+	isStarted                     bool
+	mutexForSynchronousMethodCall sync.Mutex
 }
 
 func NewProcessInfoReader() *ProcessInfoReader {
@@ -30,17 +30,17 @@ func (pir *ProcessInfoReader) Init() {
 }
 
 func (pir *ProcessInfoReader) Start() {
-	pir.mutex.Lock()
-	defer pir.mutex.Unlock()
+	pir.mutexForSynchronousMethodCall.Lock()
+	defer pir.mutexForSynchronousMethodCall.Unlock()
 
-	if pir.start == true {
+	if pir.isStarted {
 		return
 	}
-	pir.start = true
+	pir.isStarted = true
 
 	go func() {
 		for {
-			if pir.start == false {
+			if !pir.isStarted {
 				break
 			}
 
@@ -49,17 +49,17 @@ func (pir *ProcessInfoReader) Start() {
 				pir.processInfoList = processInfoList
 			}
 
-			time.Sleep(pir.period)
+			time.Sleep(pir.monitoringPeriod)
 		}
 	}()
 }
 
 func (pir *ProcessInfoReader) Stop() {
-	pir.start = false
+	pir.isStarted = false
 }
 
 func (pir *ProcessInfoReader) SetPeriod(period time.Duration) {
-	pir.period = period
+	pir.monitoringPeriod = period
 }
 
 func (pir *ProcessInfoReader) GetPidListByName(namePattern string) []int {

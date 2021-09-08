@@ -8,9 +8,11 @@ import (
 type ProcessInfoMonitor struct {
 	namePatternList                   []string
 	processStatusHistoryByNamePattern map[string](map[int]([]ProcessStatus))
-	period                            time.Duration
+	monitoringPeriod                  time.Duration
 	start                             bool
-	mutex                             sync.Mutex
+
+	mutexForSynchronousMethodCall sync.Mutex
+	mutexForProcessStatusHistory  sync.Mutex
 
 	now time.Time
 
@@ -35,8 +37,8 @@ func (pim *ProcessInfoMonitor) Init() {
 // there will be only one go routine for monitoring ProcessInfo
 // mutex is used to achieve it
 func (pim *ProcessInfoMonitor) Start() {
-	pim.mutex.Lock()
-	defer pim.mutex.Unlock()
+	pim.mutexForSynchronousMethodCall.Lock()
+	defer pim.mutexForSynchronousMethodCall.Unlock()
 
 	if pim.start {
 		return
@@ -67,8 +69,8 @@ func (pim *ProcessInfoMonitor) updateProcessStatusHistoryByNamePattern(namePatte
 	if len(changedProcessStatusMap) == 0 {
 		return
 	}
-	pim.mutex.Lock()
-	defer pim.mutex.Unlock()
+	pim.mutexForProcessStatusHistory.Lock()
+	defer pim.mutexForProcessStatusHistory.Unlock()
 	for pid, changedProcessStatus := range changedProcessStatusMap {
 		pim.processStatusHistoryByNamePattern[namePattern][pid] = append(
 			pim.processStatusHistoryByNamePattern[namePattern][pid],
@@ -80,8 +82,8 @@ func (pim *ProcessInfoMonitor) updateProcessStatusHistoryByNamePattern(namePatte
 func (pim *ProcessInfoMonitor) getChangedProcessStatus(namePattern string) map[int]ProcessStatus {
 	changedProcessStatusHistory := map[int]ProcessStatus{}
 
-	pim.mutex.Lock()
-	defer pim.mutex.Unlock()
+	pim.mutexForProcessStatusHistory.Lock()
+	defer pim.mutexForProcessStatusHistory.Unlock()
 	processStatusHistory := pim.processStatusHistoryByNamePattern[namePattern]
 
 	pidList := pim.processInfoReader.GetPidListByName(namePattern)
@@ -120,7 +122,7 @@ func (pim *ProcessInfoMonitor) Stop() {
 }
 
 func (pim *ProcessInfoMonitor) SetPeriod(period time.Duration) {
-	pim.period = period
+	pim.monitoringPeriod = period
 	pim.processInfoReader.SetPeriod(period)
 }
 
@@ -132,8 +134,8 @@ func (pim *ProcessInfoMonitor) SetNamePatternList(namePatternList []string) {
 }
 
 func (pim *ProcessInfoMonitor) GetProcessStatusLogByNamePattern(namePattern string) map[int]([]ProcessStatus) {
-	pim.mutex.Lock()
-	defer pim.mutex.Unlock()
+	pim.mutexForProcessStatusHistory.Lock()
+	defer pim.mutexForProcessStatusHistory.Unlock()
 	return pim.getProcessStatusHistory(namePattern)
 }
 
