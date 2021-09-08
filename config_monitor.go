@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -121,6 +122,17 @@ func (cm *ConfigMonitor) GetMonitoringCommandList() []string {
 		monitoringCommandList = append(monitoringCommandList, namePattern)
 	}
 	return monitoringCommandList
+}
+
+func (cm *ConfigMonitor) GetMonitoringPeriod() int {
+	cm.mutexForConfig.Lock()
+	defer cm.mutexForConfig.Unlock()
+	rawMonitoringPeriod := cm.config["monitoringPeriod"].(string)
+	monitoringPeriod, err := strconv.Atoi(rawMonitoringPeriod)
+	if err != nil {
+		panic("monitoringPeriod value should be integer value")
+	}
+	return monitoringPeriod
 }
 
 func (cm *ConfigMonitor) GetAlarmConfig() map[string]string {

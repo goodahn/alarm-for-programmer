@@ -1,0 +1,12 @@
+{
+    "monitoringCommandList": [
+        "bash test",
+        "THERE WILL BE NO PROCESS LIKE THIS"
+    ],
+    "monitoringPeriod": "50",
+    "alarmConfig": {
+        "type": "slack-webhook",
+        "webHookUrl": "localhost",
+        "requestTimeout": "1"
+    }
+}
