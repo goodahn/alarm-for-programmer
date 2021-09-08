@@ -13,6 +13,7 @@ func CheckAlarmCount(configPath string) func(*testing.T) {
 	return func(t *testing.T) {
 		alarmer := NewAlarmer(configPath)
 		defer alarmer.Stop()
+		require.True(t, alarmer.IsStarted())
 
 		count := 5
 		executeBashScriptManyTime(count)
@@ -27,6 +28,7 @@ func CheckGetMonitoringCommandList(configPath string) func(*testing.T) {
 	return func(t *testing.T) {
 		alarmer := NewAlarmer(configPath)
 		defer alarmer.Stop()
+		require.True(t, alarmer.IsStarted())
 
 		require.Equal(
 			t,
@@ -43,6 +45,7 @@ func CheckGetMonitoringPeriod(configPath string) func(*testing.T) {
 	return func(t *testing.T) {
 		alarmer := NewAlarmer(configPath)
 		defer alarmer.Stop()
+		require.True(t, alarmer.IsStarted())
 
 		require.Equal(
 			t,
@@ -56,19 +59,19 @@ func CheckGetAlarmConfig(configPath string) func(*testing.T) {
 	return func(t *testing.T) {
 		alarmer := NewAlarmer(configPath)
 		defer alarmer.Stop()
+		require.True(t, alarmer.IsStarted())
 
 		require.Equal(
 			t,
 			map[string]string{
-				"type": "slack-webhook",
-				"webHookUrl":"localhost",
+				"type":           "slack-webhook",
+				"webHookUrl":     "localhost",
 				"requestTimeout": "10",
 			},
 			alarmer.GetAlarmConfig(),
 		)
 	}
 }
-
 
 func executeBashScriptManyTime(count int) {
 	wg := sync.WaitGroup{}

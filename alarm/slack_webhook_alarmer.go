@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -116,6 +117,12 @@ func (a *SlackWebHookAlarmer) alarm(namePattern string, processStatusHistory map
 			panic(err)
 		}
 		client := http.Client{
+			Transport: &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout: time.Duration(requestTimeout),
+				}).Dial,
+				TLSHandshakeTimeout: time.Duration(requestTimeout),
+			},
 			Timeout: time.Duration(requestTimeout),
 		}
 		_, err = client.Post(webHookUrl, "application/json", buff)
