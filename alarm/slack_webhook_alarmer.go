@@ -98,31 +98,29 @@ func findPidInPidList(pid int, pidList []int) bool {
 func (a *SlackWebHookAlarmer) alarm(namePattern string, processStatusHistory map[int]alarm.ProcessStatus) {
 	a.mutexForSynchronousMethodCall.Lock()
 	defer a.mutexForSynchronousMethodCall.Unlock()
+
 	a.alarmCountMap[namePattern] += len(processStatusHistory)
+	alarmConfig := a.GetAlarmConfig()
+
 	for pid, processStatus := range processStatusHistory {
-		fmt.Println("alarmed pid", pid)
-		alarmConfig := a.GetAlarmConfig()
-		if alarmConfig["type"] == "slack-webhook" {
-			webHookUrl := alarmConfig["webHookUrl"]
-			msg := fmt.Sprintf("MonitoringCommand=%s | PID=%d | STATUS=%s", namePattern, pid, processStatus.Status())
-			data := map[string]string{
-				"text": msg,
-			}
-			rawData, _ := json.Marshal(data)
-			buff := bytes.NewBuffer(rawData)
-			requestTimeout, err := strconv.Atoi(alarmConfig["requestTimeout"])
-			if err != nil {
-				panic(err)
-			}
-			client := http.Client{
-				Timeout: time.Duration(requestTimeout),
-			}
-			_, err = client.Post(webHookUrl, "application/json", buff)
-			if err != nil {
-				log.Printf("web hook request is failed: %v\n", err)
-			}
-		} else {
-			panic("NotImplementedError")
+		webHookUrl := alarmConfig["webHookUrl"]
+		msg := fmt.Sprintf("MonitoringCommand=%s | PID=%d | STATUS=%s", namePattern, pid, processStatus.Status())
+
+		data := map[string]string{
+			"text": msg,
+		}
+		rawData, _ := json.Marshal(data)
+		buff := bytes.NewBuffer(rawData)
+		requestTimeout, err := strconv.Atoi(alarmConfig["requestTimeout"])
+		if err != nil {
+			panic(err)
+		}
+		client := http.Client{
+			Timeout: time.Duration(requestTimeout),
+		}
+		_, err = client.Post(webHookUrl, "application/json", buff)
+		if err != nil {
+			log.Printf("web hook request is failed: %v\n", err)
 		}
 	}
 }
