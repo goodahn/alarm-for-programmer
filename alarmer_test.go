@@ -23,7 +23,7 @@ func CheckAlarmCount() func(*testing.T) {
 
 		count := 5
 		executeBashScriptManyTime(count)
-		time.Sleep(2 * defaultPeriod)
+		time.Sleep(3 * defaultPeriod)
 
 		require.Equal(t, count, alarmer.GetTotalAlarmCountOfNamePattern("bash test"))
 		require.Equal(t, 0, alarmer.GetTotalAlarmCountOfNamePattern("THERE WILL BE NO PROCESS LIKE THIS"))
@@ -36,7 +36,11 @@ func prepareConfigJson() {
 		"namePatternList" : [
 			"bash test",
 			"THERE WILL BE NO PROCESS LIKE THIS"
-		]
+		],
+		"alarmConfig" : {
+			"type": "slack-webhook",
+			"webHookUrl":"localhost"
+		}
 	}
 	`)
 	_ = ioutil.WriteFile(TestConfigPath, []byte(configContent), 0644)

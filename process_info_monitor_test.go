@@ -17,14 +17,15 @@ func CheckNamePatternList() func(*testing.T) {
 		)
 		defer pim.Stop()
 
-		processStatusHistory := pim.GetProcessStatusLogByNamePattern("go test")
-		for _, processStatus := range processStatusHistory {
+		wholeProcessStatusHistory := pim.GetProcessStatusLogByNamePattern("go test")
+		for _, processStatusHistory := range wholeProcessStatusHistory {
+			processStatus := processStatusHistory[len(processStatusHistory)-1]
 			require.Equal(t,
 				ProcessStarted,
 				processStatus.Status())
 		}
 
-		processStatusHistory = pim.GetProcessStatusLogByNamePattern("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
-		require.Zero(t, len(processStatusHistory))
+		wholeProcessStatusHistory = pim.GetProcessStatusLogByNamePattern("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
+		require.Zero(t, len(wholeProcessStatusHistory))
 	}
 }

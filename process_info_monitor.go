@@ -6,11 +6,11 @@ import (
 )
 
 type ProcessInfoMonitor struct {
-	namePatternList               []string
-	processStatusLogByNamePattern map[string](map[int]ProcessStatus)
-	period                        time.Duration
-	start                         bool
-	mutex                         sync.Mutex
+	namePatternList                   []string
+	processStatusHistoryByNamePattern map[string](map[int]([]ProcessStatus))
+	period                            time.Duration
+	start                             bool
+	mutex                             sync.Mutex
 
 	now time.Time
 
@@ -27,7 +27,7 @@ func NewProcessInfoMonitor(namePatternList []string) *ProcessInfoMonitor {
 }
 
 func (pim *ProcessInfoMonitor) Init() {
-	pim.processStatusLogByNamePattern = map[string](map[int]ProcessStatus){}
+	pim.processStatusHistoryByNamePattern = map[string](map[int]([]ProcessStatus)){}
 	pim.processInfoReader = NewProcessInfoReader()
 	pim.SetPeriod(defaultPeriod)
 }
@@ -38,7 +38,7 @@ func (pim *ProcessInfoMonitor) Start() {
 	pim.mutex.Lock()
 	defer pim.mutex.Unlock()
 
-	if pim.start == true {
+	if pim.start {
 		return
 	}
 	pim.start = true
@@ -46,71 +46,72 @@ func (pim *ProcessInfoMonitor) Start() {
 	pim.processInfoReader.Start()
 	go func() {
 		for {
-			if pim.start == false {
+			if !pim.start {
 				break
 			}
 
 			pim.now = time.Now()
-			pim.updateTargetProcessStatusLog()
+			pim.updateTargetProcessStatusHistory()
 		}
 	}()
 }
 
-func (pim *ProcessInfoMonitor) updateTargetProcessStatusLog() {
+func (pim *ProcessInfoMonitor) updateTargetProcessStatusHistory() {
 	for _, namePattern := range pim.namePatternList {
-		pim.updateProcessStatusLogByNamePattern(namePattern)
+		pim.updateProcessStatusHistoryByNamePattern(namePattern)
 	}
 }
 
-func (pim *ProcessInfoMonitor) updateProcessStatusLogByNamePattern(namePattern string) {
-	changedProcessStatusLog := pim.checkProcessStatusChanged(namePattern)
-	if len(changedProcessStatusLog) == 0 {
+func (pim *ProcessInfoMonitor) updateProcessStatusHistoryByNamePattern(namePattern string) {
+	changedProcessStatusMap := pim.getChangedProcessStatus(namePattern)
+	if len(changedProcessStatusMap) == 0 {
 		return
 	}
-	pim.appendProcessStatusLogToNamePattern(namePattern, changedProcessStatusLog)
+	pim.mutex.Lock()
+	defer pim.mutex.Unlock()
+	for pid, changedProcessStatus := range changedProcessStatusMap {
+		pim.processStatusHistoryByNamePattern[namePattern][pid] = append(
+			pim.processStatusHistoryByNamePattern[namePattern][pid],
+			changedProcessStatus,
+		)
+	}
 }
 
-func (pim *ProcessInfoMonitor) checkProcessStatusChanged(namePattern string) map[int]ProcessStatus {
+func (pim *ProcessInfoMonitor) getChangedProcessStatus(namePattern string) map[int]ProcessStatus {
 	changedProcessStatusHistory := map[int]ProcessStatus{}
 
 	pim.mutex.Lock()
 	defer pim.mutex.Unlock()
-	processStatusHistory := pim.processStatusLogByNamePattern[namePattern]
+	processStatusHistory := pim.processStatusHistoryByNamePattern[namePattern]
 
 	pidList := pim.processInfoReader.GetPidListByName(namePattern)
 	for _, pid := range pidList {
-		processStatus := pim.getUpdatedProcessStatusInLogWithTimestamp(processStatusHistory, pid)
-		if (processStatus == ProcessStatus{}) {
+		latestProcessStatus := pim.getUpdatedProcessStatusInLogWithTimestamp(processStatusHistory, pid)
+		if (latestProcessStatus == ProcessStatus{}) {
 			continue
 		}
-		changedProcessStatusHistory[pid] = processStatus
+		changedProcessStatusHistory[pid] = latestProcessStatus
 	}
 	return changedProcessStatusHistory
 }
 
-func (pim *ProcessInfoMonitor) getUpdatedProcessStatusInLogWithTimestamp(processStatusLog map[int]ProcessStatus, pid int) ProcessStatus {
+func (pim *ProcessInfoMonitor) getUpdatedProcessStatusInLogWithTimestamp(processStatusHistory map[int]([]ProcessStatus), pid int) ProcessStatus {
 	isExecuting := pim.processInfoReader.IsExecuting(pid)
 	if isExecuting {
 		// process is started after its previous execution
-		mostRecentProcessStatus := findProcessStatusInLog(processStatusLog, pid)
+		mostRecentProcessStatus := findProcessStatusInHistory(processStatusHistory, pid)
 		if mostRecentProcessStatus.Status() == ProcessFinished ||
 			mostRecentProcessStatus.Status() == ProcessNeverStarted {
 			return NewProcessStatus(pid, ProcessStarted)
 		}
 	} else {
 		// process is finshed after start
-		mostRecentProcessStatus := findProcessStatusInLog(processStatusLog, pid)
+		mostRecentProcessStatus := findProcessStatusInHistory(processStatusHistory, pid)
 		if mostRecentProcessStatus.Status() == ProcessStarted {
 			return NewProcessStatus(pid, ProcessFinished)
 		}
 	}
 	return ProcessStatus{}
-}
-
-func (pim *ProcessInfoMonitor) appendProcessStatusLogToNamePattern(namePattern string, processStatusHistory map[int]ProcessStatus) {
-	pim.mutex.Lock()
-	defer pim.mutex.Unlock()
-	pim.processStatusLogByNamePattern[namePattern] = processStatusHistory
 }
 
 func (pim *ProcessInfoMonitor) Stop() {
@@ -126,37 +127,38 @@ func (pim *ProcessInfoMonitor) SetPeriod(period time.Duration) {
 func (pim *ProcessInfoMonitor) SetNamePatternList(namePatternList []string) {
 	pim.namePatternList = namePatternList
 	for _, namePattern := range namePatternList {
-		pim.processStatusLogByNamePattern[namePattern] = map[int]ProcessStatus{}
+		pim.processStatusHistoryByNamePattern[namePattern] = map[int]([]ProcessStatus){}
 	}
 }
 
-func (pim *ProcessInfoMonitor) GetProcessStatusLogByNamePattern(namePattern string) map[int]ProcessStatus {
+func (pim *ProcessInfoMonitor) GetProcessStatusLogByNamePattern(namePattern string) map[int]([]ProcessStatus) {
 	pim.mutex.Lock()
 	defer pim.mutex.Unlock()
-	return pim.getProcessStatusLog(namePattern)
+	return pim.getProcessStatusHistory(namePattern)
 }
 
-func (pim *ProcessInfoMonitor) getProcessStatusLog(namePattern string) map[int]ProcessStatus {
-	processStatusHistory, ok := pim.processStatusLogByNamePattern[namePattern]
-	if ok == false {
-		return map[int]ProcessStatus{}
+func (pim *ProcessInfoMonitor) getProcessStatusHistory(namePattern string) map[int]([]ProcessStatus) {
+	processStatusHistory, ok := pim.processStatusHistoryByNamePattern[namePattern]
+	if !ok {
+		return map[int]([]ProcessStatus){}
 	}
 	return processStatusHistory
 }
 
-// findProcessStatusInLog finds the ProcessStatus
+// findProcessStatusInHistory finds the ProcessStatus
 // whose timestamp is the biggest while its timestamp is smaller than given timestamp
-func findProcessStatusInLog(processStatusHistory map[int]ProcessStatus, pid int) ProcessStatus {
-	if len(processStatusHistory) == 0 {
+func findProcessStatusInHistory(wholeProcessStatusHistory map[int]([]ProcessStatus), pid int) ProcessStatus {
+	if len(wholeProcessStatusHistory) == 0 {
 		return NewProcessStatus(pid, ProcessNeverStarted)
 	}
 	mostRecentProcessStatus := NewProcessStatus(pid, ProcessNeverStarted)
 	mostRecentProcessStatus.SetTimestamp(time.Time{})
 
-	for _, processStatus := range processStatusHistory {
-		if processStatus.Pid() == pid {
-			mostRecentProcessStatus = processStatus
+	for _pid, processStatusHistory := range wholeProcessStatusHistory {
+		if pid != _pid {
+			continue
 		}
+		mostRecentProcessStatus = processStatusHistory[len(processStatusHistory)-1]
 	}
 	return mostRecentProcessStatus
 }

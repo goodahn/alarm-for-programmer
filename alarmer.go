@@ -1,12 +1,18 @@
 package alarm
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
 	"sync"
 	"time"
 )
 
 type Alarmer struct {
 	namePatternList                      []string
+	alarmConfig                          map[string]string
 	period                               time.Duration
 	start                                bool
 	mutex                                sync.Mutex
@@ -28,8 +34,10 @@ func NewAlarmer(configPath string) *Alarmer {
 func (a *Alarmer) Init(configPath string) {
 	a.configMonitor = NewConfigMonitor(configPath)
 	namePatternList := a.configMonitor.GetNamePatternList()
+	alarmConfig := a.configMonitor.GetAlarmConfig()
 
 	a.namePatternList = namePatternList
+	a.alarmConfig = alarmConfig
 	a.alreadyFinishedNamePatternPidListMap = map[string]([]int){}
 	a.alarmCountMap = map[string]int{}
 
@@ -43,7 +51,7 @@ func (a *Alarmer) Start() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	if a.start == true {
+	if a.start {
 		return
 	}
 	a.start = true
@@ -52,7 +60,7 @@ func (a *Alarmer) Start() {
 	a.processInfoMonitor.Start()
 	go func() {
 		for {
-			if a.start == false {
+			if !a.start {
 				break
 			}
 
@@ -74,8 +82,12 @@ func (a *Alarmer) findNewlyFinishedProcessesWithNamePattern(namePattern string) 
 
 	finishedProcessStatusMap := a.processInfoMonitor.GetProcessStatusLogByNamePattern(namePattern)
 	alreadyFinishedPidList := a.alreadyFinishedNamePatternPidListMap[namePattern]
-	for pid, processStatus := range finishedProcessStatusMap {
-		if findPidInPidList(pid, alreadyFinishedPidList) == false {
+	for pid, processStatusHistory := range finishedProcessStatusMap {
+		processStatus := processStatusHistory[len(processStatusHistory)-1]
+		if processStatus.Status() != ProcessFinished {
+			continue
+		}
+		if !findPidInPidList(pid, alreadyFinishedPidList) {
 			newlyFinishedProcessStatusMap[pid] = processStatus
 			a.alreadyFinishedNamePatternPidListMap[namePattern] = append(a.alreadyFinishedNamePatternPidListMap[namePattern], pid)
 		}
@@ -96,6 +108,24 @@ func (a *Alarmer) alarm(namePattern string, processStatusHistory map[int]Process
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.alarmCountMap[namePattern] += len(processStatusHistory)
+	for pid, processStatus := range processStatusHistory {
+		fmt.Println("alarmed pid", pid)
+		if a.alarmConfig["type"] == "slack-webhook" {
+			webHookUrl := a.alarmConfig["webHookUrl"]
+			msg := fmt.Sprintf("NamePattern=%s | PID=%d | STATUS=%s", namePattern, pid, processStatus.Status())
+			data := map[string]string{
+				"text": msg,
+			}
+			rawData, _ := json.Marshal(data)
+			buff := bytes.NewBuffer(rawData)
+			_, err := http.Post(webHookUrl, "application/json", buff)
+			if err != nil {
+				log.Printf("web hook request is failed: %v\n", err)
+			}
+		} else {
+			panic("NotImplementedError")
+		}
+	}
 }
 
 func (a *Alarmer) Stop() {

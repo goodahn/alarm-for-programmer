@@ -120,3 +120,14 @@ func (cm *ConfigMonitor) GetNamePatternList() []string {
 	}
 	return namePatternList
 }
+
+func (cm *ConfigMonitor) GetAlarmConfig() map[string]string {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	alarmConfig := map[string]string{}
+
+	for key, val := range cm.config["alarmConfig"].(map[string]interface{}) {
+		alarmConfig[key] = val.(string)
+	}
+	return alarmConfig
+}
