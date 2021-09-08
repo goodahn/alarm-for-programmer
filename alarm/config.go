@@ -1,6 +1,6 @@
 package alarm
 
-import alarm "github.com/goodahn/AlarmForProgrammer"
+import alarm "github.com/goodahn/alarm-for-programmer"
 
 func NewAlarmer(configPath string) Alarmer {
 	cm := alarm.NewConfigMonitor(configPath)

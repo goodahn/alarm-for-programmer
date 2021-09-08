@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	alarm "github.com/goodahn/AlarmForProgrammer/alarm"
+	alarm "github.com/goodahn/alarm-for-programmer/alarm"
 )
 
 func main() {

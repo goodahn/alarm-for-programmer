@@ -17,7 +17,7 @@ func CheckAlarmCount(configPath string) func(*testing.T) {
 
 		count := 5
 		executeBashScriptManyTime(count)
-		time.Sleep(time.Second)
+		time.Sleep(3 * time.Second)
 
 		require.Equal(t, count, alarmer.GetTotalAlarmCountOfMonitoringCommand("bash test"))
 		require.Equal(t, 0, alarmer.GetTotalAlarmCountOfMonitoringCommand("THERE WILL BE NO PROCESS LIKE THIS"))
