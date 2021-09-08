@@ -120,11 +120,11 @@ func (a *SlackWebHookAlarmer) alarm(namePattern string, processStatusHistory map
 			client := http.Client{
 				Transport: &http.Transport{
 					Dial: (&net.Dialer{
-						Timeout: time.Duration(requestTimeout),
+						Timeout: time.Duration(requestTimeout) * time.Millisecond,
 					}).Dial,
-					TLSHandshakeTimeout: time.Duration(requestTimeout),
+					TLSHandshakeTimeout: time.Duration(requestTimeout) * time.Millisecond,
 				},
-				Timeout: time.Duration(requestTimeout),
+				Timeout: time.Duration(requestTimeout) * time.Millisecond,
 			}
 			_, err = client.Post(webHookUrl, "application/json", buff)
 			if err != nil {
