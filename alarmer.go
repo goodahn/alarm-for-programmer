@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -38,15 +39,15 @@ func NewAlarmer(configPath string) *Alarmer {
 
 func (a *Alarmer) Init(configPath string) {
 	a.configMonitor = NewConfigMonitor(configPath)
-	namePatternList := a.configMonitor.GetNamePatternList()
+	monitoringCommandList := a.configMonitor.GetMonitoringCommandList()
 	alarmConfig := a.configMonitor.GetAlarmConfig()
 
-	a.monitoringCommandList = namePatternList
+	a.monitoringCommandList = monitoringCommandList
 	a.alarmConfig = alarmConfig
 	a.alreadyFinishedMonitoringCommandPidListMap = map[string]([]int){}
 	a.alarmCountMap = map[string]int{}
 
-	a.processInfoMonitor = NewProcessInfoMonitor(namePatternList)
+	a.processInfoMonitor = NewProcessInfoMonitor(monitoringCommandList)
 	a.SetPeriod(defaultPeriod)
 }
 
@@ -77,15 +78,15 @@ func (a *Alarmer) Start() {
 
 func (a *Alarmer) alarmIfProcessFinished() {
 	for _, namePattern := range a.monitoringCommandList {
-		processStatusList := a.findNewlyFinishedProcessesWithNamePattern(namePattern)
+		processStatusList := a.findNewlyFinishedProcessesWithMonitoringCommand(namePattern)
 		a.alarm(namePattern, processStatusList)
 	}
 }
 
-func (a *Alarmer) findNewlyFinishedProcessesWithNamePattern(namePattern string) map[int]ProcessStatus {
+func (a *Alarmer) findNewlyFinishedProcessesWithMonitoringCommand(namePattern string) map[int]ProcessStatus {
 	newlyFinishedProcessStatusMap := map[int]ProcessStatus{}
 
-	finishedProcessStatusMap := a.processInfoMonitor.GetProcessStatusLogByNamePattern(namePattern)
+	finishedProcessStatusMap := a.processInfoMonitor.GetProcessStatusLogByMonitoringCommand(namePattern)
 	alreadyFinishedPidList := a.alreadyFinishedMonitoringCommandPidListMap[namePattern]
 	for pid, processStatusHistory := range finishedProcessStatusMap {
 		processStatus := processStatusHistory[len(processStatusHistory)-1]
@@ -117,13 +118,20 @@ func (a *Alarmer) alarm(namePattern string, processStatusHistory map[int]Process
 		fmt.Println("alarmed pid", pid)
 		if a.alarmConfig["type"] == "slack-webhook" {
 			webHookUrl := a.alarmConfig["webHookUrl"]
-			msg := fmt.Sprintf("NamePattern=%s | PID=%d | STATUS=%s", namePattern, pid, processStatus.Status())
+			msg := fmt.Sprintf("MonitoringCommand=%s | PID=%d | STATUS=%s", namePattern, pid, processStatus.Status())
 			data := map[string]string{
 				"text": msg,
 			}
 			rawData, _ := json.Marshal(data)
 			buff := bytes.NewBuffer(rawData)
-			_, err := http.Post(webHookUrl, "application/json", buff)
+			requestTimeout, err := strconv.Atoi(a.alarmConfig["requestTimeout"])
+			if err != nil {
+				panic(err)
+			}
+			client := http.Client{
+				Timeout: time.Duration(requestTimeout),
+			}
+			_, err = client.Post(webHookUrl, "application/json", buff)
 			if err != nil {
 				log.Printf("web hook request is failed: %v\n", err)
 			}
@@ -142,7 +150,7 @@ func (a *Alarmer) SetPeriod(period time.Duration) {
 	a.processInfoMonitor.SetPeriod(period)
 }
 
-func (a *Alarmer) GetTotalAlarmCountOfNamePattern(namePattern string) int {
+func (a *Alarmer) GetTotalAlarmCountOfMonitoringCommand(namePattern string) int {
 	a.mutexForAlarmCountMap.Lock()
 	defer a.mutexForAlarmCountMap.Unlock()
 	count, ok := a.alarmCountMap[namePattern]

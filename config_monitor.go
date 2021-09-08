@@ -107,20 +107,20 @@ func (cm *ConfigMonitor) GetConfig() map[string]interface{} {
 	return config
 }
 
-func (cm *ConfigMonitor) GetNamePatternList() []string {
+func (cm *ConfigMonitor) GetMonitoringCommandList() []string {
 	cm.mutexForConfig.Lock()
 	defer cm.mutexForConfig.Unlock()
-	namePatternList := []string{}
+	monitoringCommandList := []string{}
 
-	rawNamePatternList := cm.config["namePatternList"].([]interface{})
-	for _, rawNamePattern := range rawNamePatternList {
-		namePattern, ok := rawNamePattern.(string)
+	rawMonitoringCommandList := cm.config["monitoringCommandList"].([]interface{})
+	for _, rawMonitoringCommand := range rawMonitoringCommandList {
+		namePattern, ok := rawMonitoringCommand.(string)
 		if !ok {
 			continue
 		}
-		namePatternList = append(namePatternList, namePattern)
+		monitoringCommandList = append(monitoringCommandList, namePattern)
 	}
-	return namePatternList
+	return monitoringCommandList
 }
 
 func (cm *ConfigMonitor) GetAlarmConfig() map[string]string {

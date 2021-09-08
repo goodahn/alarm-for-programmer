@@ -42,7 +42,7 @@ func CheckChangeConfig() func(*testing.T) {
 			0,
 			len(cm.GetConfig()))
 
-		addNamePatternList()
+		addMonitoringCommandList()
 		time.Sleep(500 * time.Millisecond)
 
 		config := cm.GetConfig()
@@ -58,10 +58,10 @@ func prepareEmptyConfig() {
 	_ = ioutil.WriteFile(TestConfigPath, []byte(configContent), 0644)
 }
 
-func addNamePatternList() {
+func addMonitoringCommandList() {
 	configContent := strings.TrimSpace(`
 	{
-		"namePatternList" : [
+		"monitoringCommandList" : [
 			"go test"
 		]
 	}

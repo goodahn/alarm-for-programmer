@@ -7,17 +7,17 @@ import (
 )
 
 func TestProcessInfoMonitor(t *testing.T) {
-	t.Run("NamePatternList", CheckNamePatternList())
+	t.Run("MonitoringCommandList", CheckMonitoringCommandList())
 }
 
-func CheckNamePatternList() func(*testing.T) {
+func CheckMonitoringCommandList() func(*testing.T) {
 	return func(t *testing.T) {
 		pim := NewProcessInfoMonitor(
 			[]string{"go test"},
 		)
 		defer pim.Stop()
 
-		wholeProcessStatusHistory := pim.GetProcessStatusLogByNamePattern("go test")
+		wholeProcessStatusHistory := pim.GetProcessStatusLogByMonitoringCommand("go test")
 		for _, processStatusHistory := range wholeProcessStatusHistory {
 			processStatus := processStatusHistory[len(processStatusHistory)-1]
 			require.Equal(t,
@@ -25,7 +25,7 @@ func CheckNamePatternList() func(*testing.T) {
 				processStatus.Status())
 		}
 
-		wholeProcessStatusHistory = pim.GetProcessStatusLogByNamePattern("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
+		wholeProcessStatusHistory = pim.GetProcessStatusLogByMonitoringCommand("THERE WILL BE NO PROCESS WHOSE NAME LIKE THIS")
 		require.Zero(t, len(wholeProcessStatusHistory))
 	}
 }

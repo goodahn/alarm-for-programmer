@@ -23,23 +23,24 @@ func CheckAlarmCount() func(*testing.T) {
 
 		count := 5
 		executeBashScriptManyTime(count)
-		time.Sleep(3 * defaultPeriod)
+		time.Sleep(4 * defaultPeriod)
 
-		require.Equal(t, count, alarmer.GetTotalAlarmCountOfNamePattern("bash test"))
-		require.Equal(t, 0, alarmer.GetTotalAlarmCountOfNamePattern("THERE WILL BE NO PROCESS LIKE THIS"))
+		require.Equal(t, count, alarmer.GetTotalAlarmCountOfMonitoringCommand("bash test"))
+		require.Equal(t, 0, alarmer.GetTotalAlarmCountOfMonitoringCommand("THERE WILL BE NO PROCESS LIKE THIS"))
 	}
 }
 
 func prepareConfigJson() {
 	configContent := strings.TrimSpace(`
 	{
-		"namePatternList" : [
+		"monitoringCommandList" : [
 			"bash test",
 			"THERE WILL BE NO PROCESS LIKE THIS"
 		],
 		"alarmConfig" : {
 			"type": "slack-webhook",
-			"webHookUrl":"localhost"
+			"webHookUrl":"localhost",
+			"requestTimeout": "10"
 		}
 	}
 	`)

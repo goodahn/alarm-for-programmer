@@ -6,10 +6,10 @@ import (
 )
 
 type ProcessInfoMonitor struct {
-	namePatternList                   []string
-	processStatusHistoryByNamePattern map[string](map[int]([]ProcessStatus))
-	monitoringPeriod                  time.Duration
-	start                             bool
+	monitoringCommandList                   []string
+	processStatusHistoryByMonitoringCommand map[string](map[int]([]ProcessStatus))
+	monitoringPeriod                        time.Duration
+	start                                   bool
 
 	mutexForSynchronousMethodCall sync.Mutex
 	mutexForProcessStatusHistory  sync.Mutex
@@ -19,17 +19,17 @@ type ProcessInfoMonitor struct {
 	processInfoReader *ProcessInfoReader
 }
 
-func NewProcessInfoMonitor(namePatternList []string) *ProcessInfoMonitor {
+func NewProcessInfoMonitor(monitoringCommandList []string) *ProcessInfoMonitor {
 	pim := &ProcessInfoMonitor{}
 	pim.Init()
-	pim.SetNamePatternList(namePatternList)
+	pim.SetMonitoringCommandList(monitoringCommandList)
 	pim.Start()
 	time.Sleep(defaultPeriod)
 	return pim
 }
 
 func (pim *ProcessInfoMonitor) Init() {
-	pim.processStatusHistoryByNamePattern = map[string](map[int]([]ProcessStatus)){}
+	pim.processStatusHistoryByMonitoringCommand = map[string](map[int]([]ProcessStatus)){}
 	pim.processInfoReader = NewProcessInfoReader()
 	pim.SetPeriod(defaultPeriod)
 }
@@ -59,12 +59,12 @@ func (pim *ProcessInfoMonitor) Start() {
 }
 
 func (pim *ProcessInfoMonitor) updateTargetProcessStatusHistory() {
-	for _, namePattern := range pim.namePatternList {
-		pim.updateProcessStatusHistoryByNamePattern(namePattern)
+	for _, namePattern := range pim.monitoringCommandList {
+		pim.updateProcessStatusHistoryByMonitoringCommand(namePattern)
 	}
 }
 
-func (pim *ProcessInfoMonitor) updateProcessStatusHistoryByNamePattern(namePattern string) {
+func (pim *ProcessInfoMonitor) updateProcessStatusHistoryByMonitoringCommand(namePattern string) {
 	changedProcessStatusMap := pim.getChangedProcessStatus(namePattern)
 	if len(changedProcessStatusMap) == 0 {
 		return
@@ -72,8 +72,8 @@ func (pim *ProcessInfoMonitor) updateProcessStatusHistoryByNamePattern(namePatte
 	pim.mutexForProcessStatusHistory.Lock()
 	defer pim.mutexForProcessStatusHistory.Unlock()
 	for pid, changedProcessStatus := range changedProcessStatusMap {
-		pim.processStatusHistoryByNamePattern[namePattern][pid] = append(
-			pim.processStatusHistoryByNamePattern[namePattern][pid],
+		pim.processStatusHistoryByMonitoringCommand[namePattern][pid] = append(
+			pim.processStatusHistoryByMonitoringCommand[namePattern][pid],
 			changedProcessStatus,
 		)
 	}
@@ -84,7 +84,7 @@ func (pim *ProcessInfoMonitor) getChangedProcessStatus(namePattern string) map[i
 
 	pim.mutexForProcessStatusHistory.Lock()
 	defer pim.mutexForProcessStatusHistory.Unlock()
-	processStatusHistory := pim.processStatusHistoryByNamePattern[namePattern]
+	processStatusHistory := pim.processStatusHistoryByMonitoringCommand[namePattern]
 
 	pidList := pim.processInfoReader.GetPidListByName(namePattern)
 	for _, pid := range pidList {
@@ -126,21 +126,21 @@ func (pim *ProcessInfoMonitor) SetPeriod(period time.Duration) {
 	pim.processInfoReader.SetPeriod(period)
 }
 
-func (pim *ProcessInfoMonitor) SetNamePatternList(namePatternList []string) {
-	pim.namePatternList = namePatternList
-	for _, namePattern := range namePatternList {
-		pim.processStatusHistoryByNamePattern[namePattern] = map[int]([]ProcessStatus){}
+func (pim *ProcessInfoMonitor) SetMonitoringCommandList(monitoringCommandList []string) {
+	pim.monitoringCommandList = monitoringCommandList
+	for _, namePattern := range monitoringCommandList {
+		pim.processStatusHistoryByMonitoringCommand[namePattern] = map[int]([]ProcessStatus){}
 	}
 }
 
-func (pim *ProcessInfoMonitor) GetProcessStatusLogByNamePattern(namePattern string) map[int]([]ProcessStatus) {
+func (pim *ProcessInfoMonitor) GetProcessStatusLogByMonitoringCommand(namePattern string) map[int]([]ProcessStatus) {
 	pim.mutexForProcessStatusHistory.Lock()
 	defer pim.mutexForProcessStatusHistory.Unlock()
 	return pim.getProcessStatusHistory(namePattern)
 }
 
 func (pim *ProcessInfoMonitor) getProcessStatusHistory(namePattern string) map[int]([]ProcessStatus) {
-	processStatusHistory, ok := pim.processStatusHistoryByNamePattern[namePattern]
+	processStatusHistory, ok := pim.processStatusHistoryByMonitoringCommand[namePattern]
 	if !ok {
 		return map[int]([]ProcessStatus){}
 	}

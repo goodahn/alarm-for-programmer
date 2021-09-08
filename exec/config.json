@@ -1,9 +1,10 @@
 {
-    "namePatternList" : [
+    "monitoringCommandList" : [
         "go test"
     ],
     "alarmConfig": {
         "type": "slack-webhook",
-        "webHookUrl": "https://hooks.slack.com/services/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"
+        "webHookUrl": "https://hooks.slack.com/services/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",
+        "requestTimeOut": "2000"
     }
 }
