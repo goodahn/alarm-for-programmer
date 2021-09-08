@@ -1,4 +1,4 @@
-module github.com/goodahn/AlarmForProgrammer
+module github.com/goodahn/alarm-for-programmer
 
 go 1.15
 

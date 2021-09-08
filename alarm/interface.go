@@ -3,7 +3,7 @@ package alarm
 import (
 	"time"
 
-	alarm "github.com/goodahn/AlarmForProgrammer"
+	alarm "github.com/goodahn/alarm-for-programmer"
 )
 
 type Alarmer interface {

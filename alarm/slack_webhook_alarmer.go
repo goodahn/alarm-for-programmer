@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	alarm "github.com/goodahn/AlarmForProgrammer"
+	alarm "github.com/goodahn/alarm-for-programmer"
 )
 
 type SlackWebHookAlarmer struct {
@@ -104,31 +104,33 @@ func (a *SlackWebHookAlarmer) alarm(namePattern string, processStatusHistory map
 	alarmConfig := a.GetAlarmConfig()
 
 	for pid, processStatus := range processStatusHistory {
-		webHookUrl := alarmConfig["webHookUrl"]
-		msg := fmt.Sprintf("MonitoringCommand=%s | PID=%d | STATUS=%s", namePattern, pid, processStatus.Status())
+		go func() {
+			webHookUrl := alarmConfig["webHookUrl"]
+			msg := fmt.Sprintf("MonitoringCommand=%s | PID=%d | STATUS=%s", namePattern, pid, processStatus.Status())
 
-		data := map[string]string{
-			"text": msg,
-		}
-		rawData, _ := json.Marshal(data)
-		buff := bytes.NewBuffer(rawData)
-		requestTimeout, err := strconv.Atoi(alarmConfig["requestTimeout"])
-		if err != nil {
-			panic(err)
-		}
-		client := http.Client{
-			Transport: &http.Transport{
-				Dial: (&net.Dialer{
-					Timeout: time.Duration(requestTimeout),
-				}).Dial,
-				TLSHandshakeTimeout: time.Duration(requestTimeout),
-			},
-			Timeout: time.Duration(requestTimeout),
-		}
-		_, err = client.Post(webHookUrl, "application/json", buff)
-		if err != nil {
-			log.Printf("web hook request is failed: %v\n", err)
-		}
+			data := map[string]string{
+				"text": msg,
+			}
+			rawData, _ := json.Marshal(data)
+			buff := bytes.NewBuffer(rawData)
+			requestTimeout, err := strconv.Atoi(alarmConfig["requestTimeout"])
+			if err != nil {
+				panic(err)
+			}
+			client := http.Client{
+				Transport: &http.Transport{
+					Dial: (&net.Dialer{
+						Timeout: time.Duration(requestTimeout) * time.Millisecond,
+					}).Dial,
+					TLSHandshakeTimeout: time.Duration(requestTimeout) * time.Millisecond,
+				},
+				Timeout: time.Duration(requestTimeout) * time.Millisecond,
+			}
+			_, err = client.Post(webHookUrl, "application/json", buff)
+			if err != nil {
+				log.Printf("web hook request is failed: %v\n", err)
+			}
+		}()
 	}
 }
 
@@ -140,7 +142,7 @@ func (a *SlackWebHookAlarmer) GetTotalAlarmCountOfMonitoringCommand(namePattern 
 	a.mutexForAlarmCountMap.Lock()
 	defer a.mutexForAlarmCountMap.Unlock()
 	count, ok := a.alarmCountMap[namePattern]
-	if ok == false {
+	if !ok {
 		return 0
 	}
 	return count
