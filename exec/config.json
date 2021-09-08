@@ -2,6 +2,7 @@
     "monitoringCommandList" : [
         "go test"
     ],
+    "monitoringPeriod": "1000",
     "alarmConfig": {
         "type": "slack-webhook",
         "webHookUrl": "https://hooks.slack.com/services/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",

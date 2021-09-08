@@ -51,9 +51,9 @@ func CheckDirectoryOfExecutingBinary() func(*testing.T) {
 
 		pidList := pir.GetPidListByName("go test")
 		require.Equal(t, 1, len(pidList))
-		require.Equal(t,
-			getCurrentFileLocation(),
+		require.Contains(t,
 			pir.GetLocationOfExecutedBinary(pidList[0]),
+			getCurrentFileLocation(),
 		)
 	}
 }
