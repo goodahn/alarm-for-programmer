@@ -1,3 +1,3 @@
-sleep 3
+sleep 1
 echo "asdf"
-sleep 3
+sleep 1
